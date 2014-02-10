@@ -1,0 +1,3 @@
+[submodule "amqp-rpc"]
+	path = amqp-rpc
+	url = git@git.onion.io:service/amqp-rpc.git
