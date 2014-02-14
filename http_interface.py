@@ -14,6 +14,39 @@ def enable_cors():
     response.headers['Access-Control-Allow-Methods'] = 'PUT, GET, POST, DELETE, OPTIONS'
     response.headers['Access-Control-Allow-Headers'] = 'Origin, Accept, Content-Type, X-Requested-With, X-CSRF-Token'
  
+def callRemoteFunction(params):
+    payload = {}
+    payload['path'] = params['path']
+    payload['verb'] = params['verb']
+    payload['deviceId'] = params['deviceId']
+    path = params['path']
+    verb = params['verb']
+    deviceId = params['deviceId']
+
+    result = rpc.call('DB_GET_PROCEDURE', payload)
+    if result != None:
+        fid = result["functionId"]
+        if params['verb'].upper() == "POST":
+            postParams = params['postParams'] 
+            params = []
+            for p in result['postParams']:
+                temp = str(postParams[p])
+                params.append(str(temp.replace(',','.').replace(';',':')))
+            cmd = "%s;%s"%(fid,','.join(params))
+        else:
+            postParams = None
+            cmd = fid
+
+        print '%s < %s'%(deviceId, cmd)
+        rpc.call('IF_MQTT_SEND', {'deviceId':deviceId, 'cmd':cmd})
+
+        rpc.call('DB_ADD_HISTORY', {
+            'deviceId': deviceId,
+            'action': "%s: %s"%(verb, path),
+            'payload': json.dumps(postParams)
+            })
+    else:
+        return "endpoint cannot be found"
 
 @app.get('/v1/devices/<deviceId>/<path:path>')
 def getStatus(deviceId=None, path=None):
@@ -25,7 +58,8 @@ def getStatus(deviceId=None, path=None):
     data['deviceId'] = deviceId
     data["path"] = path
     data["verb"] = "GET"
-    result =  rpc.call('IF_CALL_FUNCTION', data )
+    #result =  rpc.call('IF_CALL_FUNCTION', data )
+    result =  callRemoteFunction(data)
     result = {'error': result}
     response.set_header('Content-Type', 'application/json')
     return json.dumps(result)
@@ -60,7 +94,8 @@ def getStatus(deviceId=None, path=None):
 
     data["postParams"] = postParams
 
-    result =  rpc.call('IF_CALL_FUNCTION', data )
+    #result =  rpc.call('IF_CALL_FUNCTION', data )
+    result =  callRemoteFunction(data)
     result = {'error': result}
     response.set_header('Content-Type', 'application/json')
     return json.dumps(result)
