@@ -15,7 +15,7 @@ def enable_cors():
     response.headers['Access-Control-Allow-Headers'] = 'Origin, Accept, Content-Type, X-Requested-With, X-CSRF-Token'
  
 
-@app.get('/api/devices/<deviceId>/<path:path>')
+@app.get('/v1/devices/<deviceId>/<path:path>')
 def getStatus(deviceId=None, path=None):
     if deviceId == None:
         return {"error":"invalid device"};
@@ -30,7 +30,7 @@ def getStatus(deviceId=None, path=None):
     response.set_header('Content-Type', 'application/json')
     return json.dumps(result)
 
-@app.post('/api/devices/<deviceId>/<path:path>')
+@app.post('/v1/devices/<deviceId>/<path:path>')
 def getStatus(deviceId=None, path=None):
     if deviceId == None:
         return {"error":"invalid device"};
@@ -64,7 +64,6 @@ def getStatus(deviceId=None, path=None):
     result = {'error': result}
     response.set_header('Content-Type', 'application/json')
     return json.dumps(result)
-
 
 if __name__ == "__main__":
     run(app, host='0.0.0.0', port=80, debug=True, server='paste')
