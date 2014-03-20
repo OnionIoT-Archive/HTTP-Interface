@@ -100,6 +100,10 @@ def getStatus(deviceId=None, path=None):
     response.set_header('Content-Type', 'application/json')
     return json.dumps(result)
 
+@app.route(path="/v1/devices/<deviceId>/<path:path>", method='OPTIONS')
+def options(deviceId, path):
+    pass
+
 if __name__ == "__main__":
     run(app, host='0.0.0.0', port=80, debug=True, server='paste')
     print "started..."
