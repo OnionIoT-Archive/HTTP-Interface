@@ -48,8 +48,46 @@ def callRemoteFunction(params):
     else:
         return "endpoint cannot be found"
 
-@app.get('/v1/devices/<deviceId>/<path:path>')
-def getStatus(deviceId=None, path=None):
+def callRemoteFunctionV2(params):
+    payload = {}
+    payload['path'] = params['path']
+    payload['verb'] = params['verb']
+    payload['deviceId'] = params['deviceId']
+    path = params['path']
+    verb = params['verb']
+    deviceId = params['deviceId']
+
+    result = rpc.call('DB_GET_PROCEDURE', payload)
+    if result != None:
+        fid = result["functionId"]
+        if params['verb'].upper() == "POST":
+            postParams = params['postParams'] 
+        #    params = [fid]
+        #    for p in result['postParams']:
+        #        temp = str(postParams[p])
+        #        params.append(temp)
+        #    cmd = 
+
+        else:
+            postParams = []
+        #    postParams = None
+        #    cmd = fid
+
+
+        rpc.call('DB_ADD_HISTORY', {
+            'deviceId': deviceId,
+            'action': "%s: %s"%(verb, path),
+            'payload': json.dumps(postParams)
+            })
+
+        return rpc.call('IF_DEVICE_SEND', {'deviceId':deviceId, 'functionId':fid, 'postParams': postParams})
+    else:
+        return "endpoint cannot be found"
+
+
+
+@app.get('/<version>/devices/<deviceId>/<path:path>')
+def getStatus(version='v1', deviceId=None, path=None):
     if deviceId == None:
         return {"error":"invalid device"};
     path = '/'+path
@@ -59,13 +97,20 @@ def getStatus(deviceId=None, path=None):
     data["path"] = path
     data["verb"] = "GET"
     #result =  rpc.call('IF_CALL_FUNCTION', data )
-    result =  callRemoteFunction(data)
+    if version == "v1":
+        result =  callRemoteFunction(data)
+        result =  callRemoteFunctionV2(data)
+    elif version == "v2":
+        result =  callRemoteFunctionV2(data)
+    else:
+        result = "API version not supported"
     result = {'error': result}
     response.set_header('Content-Type', 'application/json')
     return json.dumps(result)
 
-@app.post('/v1/devices/<deviceId>/<path:path>')
-def getStatus(deviceId=None, path=None):
+
+@app.post('/<version>/devices/<deviceId>/<path:path>')
+def getStatus(version='v1', deviceId=None, path=None):
     if deviceId == None:
         return {"error":"invalid device"};
     path = '/'+path
@@ -95,13 +140,18 @@ def getStatus(deviceId=None, path=None):
     data["postParams"] = postParams
 
     #result =  rpc.call('IF_CALL_FUNCTION', data )
-    result =  callRemoteFunction(data)
+    if version == "v1":
+        result =  callRemoteFunction(data)
+    elif version == "v2":
+        result =  callRemoteFunctionV2(data)
+    else:
+        result = "API version not supported"
     result = {'error': result}
     response.set_header('Content-Type', 'application/json')
     return json.dumps(result)
 
-@app.route(path="/v1/devices/<deviceId>/<path:path>", method='OPTIONS')
-def options(deviceId, path):
+@app.route(path="/<version>/devices/<deviceId>/<path:path>", method='OPTIONS')
+def options(version='v1', deviceId=None, path=None):
     pass
 
 if __name__ == "__main__":
