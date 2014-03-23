@@ -4,6 +4,9 @@ import json
 
 app = Bottle()
 
+with open('/etc/onionConfig.json') as f:
+    config = json.load(f)['API_SERVER']
+
 @app.hook('after_request')
 def enable_cors():
     """
@@ -58,20 +61,14 @@ def callRemoteFunctionV2(params):
     deviceId = params['deviceId']
 
     result = rpc.call('DB_GET_PROCEDURE', payload)
+    postParams = []
     if result != None:
         fid = result["functionId"]
         if params['verb'].upper() == "POST":
-            postParams = params['postParams'] 
-        #    params = [fid]
-        #    for p in result['postParams']:
-        #        temp = str(postParams[p])
-        #        params.append(temp)
-        #    cmd = 
+            for p in result['postParams']:
+                temp = str(params['postParams'][p])
+                postParams.append(temp)
 
-        else:
-            postParams = []
-        #    postParams = None
-        #    cmd = fid
 
 
         rpc.call('DB_ADD_HISTORY', {
@@ -155,5 +152,5 @@ def options(version='v1', deviceId=None, path=None):
     pass
 
 if __name__ == "__main__":
-    run(app, host='0.0.0.0', port=80, debug=True, server='paste')
+    run(app, host=config['SERVER_HOST'], port=config['SERVER_PORT'], debug=True, server='paste')
     print "started..."
