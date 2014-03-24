@@ -1,14 +1,18 @@
 import amqp_rpc as rpc
-#from bottle import Bottle, run, request, response
 import json
-
 from flask import Flask, request, make_response
+from OpenSSL import SSL
+from flask_sslify import SSLify
 
 app = Flask(__name__)
 
 
 with open('/etc/onionConfig.json') as f:
     config = json.load(f)['API_SERVER']
+
+context = SSL.Context(SSL.SSLv23_METHOD)
+context.use_privatekey_file(config['SSL_KEY'])
+context.use_certificate_file(config['SSL_CRT'])
 
 def callRemoteFunction(params):
     payload = {}
@@ -33,7 +37,6 @@ def callRemoteFunction(params):
             postParams = None
             cmd = fid
 
-        print '%s < %s'%(deviceId, cmd)
         rpc.call('IF_MQTT_SEND', {'deviceId':deviceId, 'cmd':cmd})
 
         rpc.call('DB_ADD_HISTORY', {
@@ -134,5 +137,6 @@ def onApiCall(version='v1', deviceId=None, path=None):
     return response
 
 if __name__ == "__main__":
-    app.run(host=config['SERVER_HOST'], port=config['SERVER_PORT'])
+    sslify = SSLify(app, subdomains=True)
+    sslify.app.run(host=config['SERVER_HOST'], port=config['SERVER_PORT'], debug=True, ssl_context=context)
     print "started..."
