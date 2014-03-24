@@ -1,22 +1,15 @@
 import amqp_rpc as rpc
-from bottle import Bottle, run, request, response
+#from bottle import Bottle, run, request, response
 import json
 
-app = Bottle()
+from flask import Flask, request, make_response
+
+app = Flask(__name__)
+
 
 with open('/etc/onionConfig.json') as f:
     config = json.load(f)['API_SERVER']
 
-@app.hook('after_request')
-def enable_cors():
-    """
-    You need to add some headers to each request.
-    Don't use the wildcard '*' for Access-Control-Allow-Origin in production.
-    """
-    response.headers['Access-Control-Allow-Origin'] = '*'
-    response.headers['Access-Control-Allow-Methods'] = 'PUT, GET, POST, DELETE, OPTIONS'
-    response.headers['Access-Control-Allow-Headers'] = 'Origin, Accept, Content-Type, X-Requested-With, X-CSRF-Token'
- 
 def callRemoteFunction(params):
     payload = {}
     payload['path'] = params['path']
@@ -83,74 +76,63 @@ def callRemoteFunctionV2(params):
 
 
 
-@app.get('/<version>/devices/<deviceId>/<path:path>')
-def getStatus(version='v1', deviceId=None, path=None):
+@app.route('/<version>/devices/<deviceId>/<path:path>', methods=['GET', 'POST', 'OPTIONS'])
+def onApiCall(version='v1', deviceId=None, path=None):
     if deviceId == None:
-        return {"error":"invalid device"};
-    path = '/'+path
-    
+        return {"error":"invalid device id"};
+
     data = {}
     data['deviceId'] = deviceId
-    data["path"] = path
-    data["verb"] = "GET"
-    #result =  rpc.call('IF_CALL_FUNCTION', data )
-    if version == "v1":
-        result =  callRemoteFunction(data)
-        result =  callRemoteFunctionV2(data)
-    elif version == "v2":
-        result =  callRemoteFunctionV2(data)
-    else:
-        result = "API version not supported"
-    result = {'error': result}
-    response.set_header('Content-Type', 'application/json')
-    return json.dumps(result)
+    data["path"] = '/'+path
+    data["verb"] = request.method
 
 
-@app.post('/<version>/devices/<deviceId>/<path:path>')
-def getStatus(version='v1', deviceId=None, path=None):
-    if deviceId == None:
-        return {"error":"invalid device"};
-    path = '/'+path
+    print request.headers['Content-Type']
+
+    if request.method == 'OPTIONS': 
+        print "on options"
+        response = make_response()
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Origin, Accept, Content-Type, X-Requested-With, X-CSRF-Token'
+        return response
+
+    elif request.method == 'GET': 
+        pass
     
-    data = {}
-    data['deviceId'] = deviceId
-    data["path"] = path
-    data["verb"] = "POST"
-    postParams = {}
-    if "form-data" in request.content_type:
-        for key in request.forms:
-            postParams[key] = request.forms.get(key)
-    elif "application/json" in request.content_type:
-        postParams = request.json
-    elif "text/plain" in request.content_type:
-        try:
-            postParams = json.loads(request.body.read())
-        except Exception as e:
-            return {"Error": str(e)}
-    else:
-        try:
-            for key in request.forms:
-                postParams[key] = request.forms.get(key)
-        except Exception as e:
-            return {"Error": str(e)}
+    elif request.method == 'POST': 
+        postParams = {}
+        if "form-data" in request.headers['Content-Type']:
+            for key in request.form:
+                postParams[key] = request.form[key]
 
-    data["postParams"] = postParams
+        elif "application/json" in request.headers['Content-Type']:
+            postParams = request.data
+        else:
+            try:
+                postParams = json.loads(request.data)
+            except Exception as e:
+                response = make_response(json.dumps({"error": str(e)}))
+                response.headers['Content-Type'] = 'application/json'
+                response.headers['Access-Control-Allow-Origin'] = '*'
+                return response
+  
+        data["postParams"] = postParams
 
-    #result =  rpc.call('IF_CALL_FUNCTION', data )
     if version == "v1":
         result =  callRemoteFunction(data)
     elif version == "v2":
         result =  callRemoteFunctionV2(data)
     else:
         result = "API version not supported"
-    result = {'error': result}
-    response.set_header('Content-Type', 'application/json')
-    return json.dumps(result)
 
-@app.route(path="/<version>/devices/<deviceId>/<path:path>", method='OPTIONS')
-def options(version='v1', deviceId=None, path=None):
-    pass
+    result = {'error': result}
+
+    response = make_response(json.dumps(result))
+    response.headers['Content-Type'] = 'application/json'
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    return response
 
 if __name__ == "__main__":
-    run(app, host=config['SERVER_HOST'], port=config['SERVER_PORT'], debug=True, server='paste')
+    app.run(host=config['SERVER_HOST'], port=config['SERVER_PORT'])
     print "started..."
