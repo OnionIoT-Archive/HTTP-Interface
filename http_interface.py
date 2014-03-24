@@ -138,5 +138,5 @@ def onApiCall(version='v1', deviceId=None, path=None):
 
 if __name__ == "__main__":
     sslify = SSLify(app, subdomains=True)
-    sslify.app.run(host=config['SERVER_HOST'], port=config['SERVER_PORT'], debug=True, ssl_context=context)
+    sslify.app.run(host=config['SERVER_HOST'], port=config['SERVER_PORT'], debug=config['DEBUG_MODE'], ssl_context=context)
     print "started..."
