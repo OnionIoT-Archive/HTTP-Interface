@@ -3,9 +3,9 @@ import json
 from flask import Flask, request, make_response
 #from OpenSSL import SSL
 #from flask_sslify import SSLify
-import logging
-logging.basicConfig(filename='/var/log/onion.log',level=logging.DEBUG)
 
+rpc.setLogModule('HTTP Interface')
+rpc.log('Started ...', 'INFO')
 
 app = Flask(__name__)
 
@@ -64,8 +64,7 @@ def callRemoteFunctionV2(params):
     if result != None:
         fid = result["functionId"]
         if params['verb'].upper() == "POST":
-            logging.debug(result['postParams'])
-            logging.debug(params['postParams'])
+            rpc.log(result['postParams'],'DEBUG')
             for p in result['postParams']:
                 temp = str(params['postParams'][p])
                 postParams.append(temp)
@@ -87,7 +86,7 @@ def callRemoteFunctionV2(params):
 @app.route('/<version>/devices/<deviceId>/<path:path>', methods=['GET', 'POST', 'OPTIONS'])
 def onApiCall(version='v1', deviceId=None, path=None):
     try:
-        logging.debug("on request")
+        rpc.log('on request','DEBUG')
         if deviceId == None:
             return make_response(json.dumps({"error":"invalid device id"}));
 
@@ -117,18 +116,19 @@ def onApiCall(version='v1', deviceId=None, path=None):
                     postParams[key] = request.form[key]
 
             elif "application/json" in request.headers['Content-Type']:
-                postParams = request.data
+                postParams = json.loads(request.data)
             else:
                 try:
                     postParams = json.loads(request.data)
                 except Exception as e:
-                    logging.error(str(e))
+                    rpc.log(str(e),'ERROR')
                     response = make_response(json.dumps({"error": str(e)}))
                     response.headers['Content-Type'] = 'application/json'
                     response.headers['Access-Control-Allow-Origin'] = '*'
                     return response
   
             data["postParams"] = postParams
+            rpc.log(postParams,'DEBUG')
 
         if version == "v1":
             result =  callRemoteFunction(data)
